@@ -8,6 +8,7 @@ from io import BytesIO
 from urllib.request import urlopen
 from zipfile import ZipFile
 from pathlib import Path
+from kaggle.api.kaggle_api_extended import KaggleApi
 
 
 def get_dataset(name: str) -> pd.DataFrame:
@@ -39,6 +40,7 @@ def preprocess_enron() -> None:
 
     # Save
     df.to_csv("data/processed/enron/data.csv", index=False)
+    print(f"Enron dataset processed and saved.")
 
 
 def preprocess_ling() -> None:
@@ -69,6 +71,7 @@ def preprocess_ling() -> None:
 
     # Save
     df.to_csv("data/processed/ling/data.csv", index=False)
+    print(f"Ling dataset processed and saved.")
 
 
 def preprocess_sms() -> None:
@@ -98,6 +101,7 @@ def preprocess_sms() -> None:
 
     # Save
     df.to_csv("data/processed/sms/data.csv", index=False)
+    print(f"SMS dataset processed and saved.")
 
 
 def preprocess_spamassassin() -> None:
@@ -134,6 +138,47 @@ def preprocess_spamassassin() -> None:
 
     # Save
     df.to_csv("data/processed/spamassassin/data.csv", index=False)
+    print(f"SpamAssassin dataset processed and saved.")
+
+
+def preprocess_trec() -> None:
+    dataset_versions = ["2005", "2006", "2007"]
+
+    for dataset_version in dataset_versions:
+        """Download, clean, and rename a specific TREC dataset and save it in data/processed"""
+        raw_dir = f"data/raw/trec-{dataset_version}"
+        processed_dir = f"data/processed/trec-{dataset_version}"
+
+        Path(raw_dir).mkdir(parents=True, exist_ok=True)
+        Path(processed_dir).mkdir(parents=True, exist_ok=True)
+
+        api = KaggleApi()
+        api.authenticate()
+
+        # Download the dataset using Kaggle API
+        dataset_url = (
+            f"bayes2003/emails-for-spam-or-ham-classification-trec-{dataset_version}"
+        )
+        api.dataset_download_files(dataset_url, path=raw_dir, unzip=True)
+
+        # Load the processed email text CSV file
+        csv_file = os.path.join(raw_dir, "email_text.csv")
+        df = pd.read_csv(csv_file, encoding="ISO-8859-1")
+
+        # Preprocess
+        df = df.fillna("")
+        df = df[["text", "label"]]
+        df = df.dropna()
+        df = df.drop_duplicates()
+        # df = df.dropna(subset=["text"])
+        # df = df[df["text"].str.strip() != ""]
+
+        # Ensure labels are correct
+        df = df[df["label"].isin([0, 1])]
+
+        # Save the preprocessed data
+        df.to_csv(os.path.join(processed_dir, "data.csv"), index=False)
+        print(f"TREC {dataset_version} dataset processed and saved.")
 
 
 def init_datasets() -> None:
@@ -141,6 +186,7 @@ def init_datasets() -> None:
     preprocess_ling()
     preprocess_sms()
     preprocess_spamassassin()
+    preprocess_trec()
 
 
 def train_val_test_split(df, train_size=0.8, has_val=True):

@@ -51,30 +51,45 @@ from src.spamdetection.utils import (
 )
 from src.spamdetection.transforms import transform_df, encode_df, tokenize, init_nltk
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
 
-MODELS = {
-    "NB": (MultinomialNB(), 1000),
-    "LR": (LogisticRegression(), 500),
-    "KNN": (KNeighborsClassifier(n_neighbors=1), 150),
-    "SVM": (SVC(kernel="sigmoid", gamma=1.0), 3000),
-    "XGBoost": (XGBClassifier(learning_rate=0.01, n_estimators=150), 2000),
-    "LightGBM": (LGBMClassifier(learning_rate=0.1, num_leaves=20), 3000),
-}
+# MODELS = {
+#     "NB": (MultinomialNB(), 1000),
+#     "LR": (LogisticRegression(), 500),
+#     "KNN": (KNeighborsClassifier(n_neighbors=1), 150),
+#     "SVM": (SVC(kernel="sigmoid", gamma=1.0), 3000),
+#     "XGBoost": (XGBClassifier(learning_rate=0.01, n_estimators=150), 2000),
+#     "LightGBM": (LGBMClassifier(learning_rate=0.1, num_leaves=20), 3000),
+# }
 
+
+# LLMS = {
+#     "RoBERTa": (
+#         AutoModelForSequenceClassification.from_pretrained(
+#             "roberta-base", num_labels=2
+#         ).to(device),
+#         AutoTokenizer.from_pretrained("roberta-base"),
+#     ),
+#     "SetFit-mpnet": (
+#         SetFitModel.from_pretrained("sentence-transformers/all-mpnet-base-v2"),
+#         None,
+#     ),
+#     "FLAN-T5-base": (
+#         AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base").to(device),
+#         AutoTokenizer.from_pretrained("google/flan-t5-base"),
+#     ),
+# }
 
 LLMS = {
     "RoBERTa": (
         AutoModelForSequenceClassification.from_pretrained(
             "roberta-base", num_labels=2
-        ),
+        ).to(device),
         AutoTokenizer.from_pretrained("roberta-base"),
     ),
-    "SetFit-mpnet": (
-        SetFitModel.from_pretrained("sentence-transformers/all-mpnet-base-v2"),
-        None,
-    ),
     "FLAN-T5-base": (
-        AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base"),
+        AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base").to(device),
         AutoTokenizer.from_pretrained("google/flan-t5-base"),
     ),
 }
@@ -93,6 +108,7 @@ class EvalOnTrainCallback(TrainerCallback):
             self._trainer.evaluate(
                 eval_dataset=self._trainer.train_dataset, metric_key_prefix="train"
             )
+            print(f"Epoch {state.epoch}: Evaluation on training set completed.")
             return control_train
 
 
@@ -100,7 +116,7 @@ def get_trainer(model, dataset, tokenizer=None):
     """Return a trainer object for transformer models."""
 
     def compute_metrics(y_pred):
-        """Computer metrics during training."""
+        """Compute metrics during training."""
         logits, labels = y_pred
         predictions = np.argmax(logits, axis=-1)
         return evaluate.load("f1").compute(
@@ -115,6 +131,7 @@ def get_trainer(model, dataset, tokenizer=None):
             loss_class=CosineSimilarityLoss,
             metric="f1",
             batch_size=16,
+            # batch_size=8,
             num_iterations=20,
             num_epochs=3,
         )
@@ -123,7 +140,7 @@ def get_trainer(model, dataset, tokenizer=None):
     elif "T5" in type(model).__name__ or "FLAN" in type(model).__name__:
 
         def compute_metrics_t5(y_pred, verbose=0):
-            """Computer metrics during training for T5-like models."""
+            """Compute metrics during training for T5-like models."""
             predictions, labels = y_pred
 
             predictions = tokenizer.batch_decode(predictions, skip_special_tokens=True)
@@ -153,7 +170,7 @@ def get_trainer(model, dataset, tokenizer=None):
             learning_rate=5e-5,
             num_train_epochs=5,
             predict_with_generate=True,
-            fp16=False,
+            fp16=torch.cuda.is_available(),
             evaluation_strategy="epoch",
             save_strategy="epoch",
             load_best_model_at_end=True,
@@ -182,6 +199,7 @@ def get_trainer(model, dataset, tokenizer=None):
             save_strategy="epoch",
             load_best_model_at_end=True,
             save_total_limit=10,
+            fp16=torch.cuda.is_available(),
         )
 
         trainer = Trainer(
@@ -221,8 +239,10 @@ def train_llms(seeds, datasets, train_sizes, test_set="test"):
         set_seed(seed)
 
         for dataset_name in list(datasets):
+            print(f"Training on dataset: {dataset_name} with seed: {seed}")
 
             for train_size in train_sizes:
+                print(f"Training with train size: {train_size}")
                 # Get metrics
                 scores = pd.DataFrame(
                     index=list(LLMS.keys()),
@@ -242,6 +262,7 @@ def train_llms(seeds, datasets, train_sizes, test_set="test"):
 
                 # Train, evaluate, test
                 for model_name, (model, tokenizer) in LLMS.items():
+                    print(f"Training model: {model_name}")
                     tokenized_dataset = tokenize(dataset, tokenizer)
                     trainer = get_trainer(model, tokenized_dataset, tokenizer)
 
@@ -256,6 +277,7 @@ def train_llms(seeds, datasets, train_sizes, test_set="test"):
                         plot_loss(experiment, dataset_name, model_name)
 
                     # Test model
+                    print(f"Testing model: {model_name}")
                     start = time.time()
                     predictions = predict(
                         trainer, model, tokenized_dataset[test_set], tokenizer
@@ -285,8 +307,10 @@ def train_baselines(seeds, datasets, train_sizes, test_set="test"):
         set_seed(seed)
 
         for dataset_name in list(datasets):
+            print(f"Training on dataset: {dataset_name} with seed: {seed}")
 
             for train_size in train_sizes:
+                print(f"Training with train size: {train_size}")
                 # Create list of metrics
                 scores = pd.DataFrame(
                     index=list(MODELS.keys()),
@@ -307,10 +331,19 @@ def train_baselines(seeds, datasets, train_sizes, test_set="test"):
 
                 # Cross-validate and test every model
                 for model_name, (model, max_iter) in MODELS.items():
+                    print(f"Training model: {model_name}")
                     # Encode the dataset
                     encoder = TfidfVectorizer(max_features=max_iter)
                     X_train, y_train, encoder = encode_df(df_train, encoder)
                     X_test, y_test, encoder = encode_df(df_test, encoder)
+
+                    # Adjust model parameters for GPU if applicable
+                    if model_name == "XGBoost":
+                        model.set_params(
+                            tree_method="gpu_hist", predictor="gpu_predictor"
+                        )
+                    elif model_name == "LightGBM":
+                        model.set_params(device="gpu")
 
                     # Evaluate model with cross-validation
                     if test_set == "val":
@@ -334,6 +367,7 @@ def train_baselines(seeds, datasets, train_sizes, test_set="test"):
                         end = time.time()
                         scores.loc[model_name]["training_time"] = end - start
 
+                        print(f"Testing model: {model_name}")
                         start = time.time()
                         y_pred = model.predict(X_test)
                         end = time.time()

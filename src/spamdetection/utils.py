@@ -1,21 +1,22 @@
 import matplotlib.pyplot as plt
 from pathlib import Path
-import scienceplots
 import pandas as pd
 import numpy as np
 import random
 import torch
-import glob
 from sklearn.metrics import (
     f1_score,
     precision_score,
     recall_score,
-    roc_auc_score,
     accuracy_score,
 )
 from src.spamdetection.preprocessing import get_dataset
 
-plt.style.use("science")
+# Turn off LaTeX rendering globally
+plt.rcParams["text.usetex"] = False
+
+# Use a built-in Matplotlib style
+plt.style.use("ggplot")
 
 SCORING = {
     "f1": f1_score,
@@ -43,13 +44,14 @@ def plot_loss(experiment: str, dataset_name: str, model_name: str) -> None:
     eval_losses = log["eval_loss"].dropna().values
     x = np.arange(1, len(train_losses) + 1, step=1)
 
-    with plt.style.context(["science", "high-vis"]):
+    with plt.style.context(["ggplot"]):
         fig, ax = plt.subplots()
         plt.plot(x, train_losses, label="Training loss")
         plt.plot(x, eval_losses, label="Evaluation loss")
 
         ax.set_title(f"{model_name} ({dataset_name.upper()})")
-        ax.set_xticks(x, labels=range(1, len(x) + 1))
+        ax.set_xticks(x)
+        ax.set_xticklabels(range(1, len(x) + 1))
         ax.set_xlabel("Epochs")
         ax.set_ylabel("Loss")
         ax.legend(loc="upper right")
@@ -61,7 +63,7 @@ def plot_loss(experiment: str, dataset_name: str, model_name: str) -> None:
         plt.savefig(
             f"outputs/png/loss_{model_name}_{experiment}.png", format="png", dpi=300
         )
-        plt.show()
+        # plt.show()
 
 
 def plot_scores(experiment: str, dataset_name: str) -> None:
@@ -71,6 +73,9 @@ def plot_scores(experiment: str, dataset_name: str) -> None:
     x = np.arange(len(scores))
     width = 0.2
 
+    # Turn off LaTeX rendering for this plot
+    plt.rcParams["text.usetex"] = False
+
     # Plot
     fig, ax = plt.subplots(figsize=(9, 3))
     rects1 = ax.bar(x=x - width, height=scores["f1"], width=width, label="F1 score")
@@ -79,7 +84,8 @@ def plot_scores(experiment: str, dataset_name: str) -> None:
 
     ax.set_title(f"{dataset_name.upper()}")
     ax.set_ylabel("Score")
-    ax.set_xticks(x, labels=scores.index, fontsize=10)
+    ax.set_xticks(x)
+    ax.set_xticklabels(scores.index, fontsize=10)
     plt.legend(bbox_to_anchor=(0.5, -0.25), loc="lower center", ncol=4)
 
     fig.tight_layout()
@@ -89,7 +95,7 @@ def plot_scores(experiment: str, dataset_name: str) -> None:
 
     plt.savefig(f"outputs/pdf/{experiment}.pdf", format="pdf")
     plt.savefig(f"outputs/png/{experiment}.png", format="png", dpi=300)
-    plt.show()
+    # plt.show()
 
 
 def plot_pie_charts() -> None:
@@ -101,7 +107,7 @@ def plot_pie_charts() -> None:
         df = get_dataset(dataset_name)
         axs[i].pie(
             df["label"].value_counts().to_numpy(),
-            autopct="%1.2f\%%",
+            autopct="%1.2f%%",
             pctdistance=0.35,
             startangle=-30,
             wedgeprops={"width": 0.3},
@@ -121,7 +127,7 @@ def plot_pie_charts() -> None:
     plt.subplots_adjust(wspace=-0.3)
     plt.savefig(f"outputs/pdf/pie_charts.pdf", format="pdf")
     plt.savefig(f"outputs/png/pie_charts.png", format="png", dpi=300)
-    plt.show()
+    # plt.show()
 
 
 def save_scores(experiment: str, index: str, values: dict) -> None:

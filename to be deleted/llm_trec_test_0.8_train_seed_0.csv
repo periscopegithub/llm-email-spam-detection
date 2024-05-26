@@ -1,0 +1,7 @@
+,f1,precision,recall,accuracy,training_time,inference_time
+BERT,,,,,,
+RoBERTa,0.9641255605381167,0.9885057471264368,0.9409190371991247,0.9669972233240778,12667.775483846664,43.931278705596924
+SetFit-MiniLM,,,,,,
+SetFit-mpnet,,,,,,
+FLAN-T5-small,,,,,,
+FLAN-T5-base,,,,,,
