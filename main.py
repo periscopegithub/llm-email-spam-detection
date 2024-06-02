@@ -10,12 +10,20 @@ from src.spamdetection.preprocessing import init_datasets
 if __name__ == "__main__":
 
     # Download and process datasets
-    if not os.path.exists("data"):
+    if os.path.exists("data") == False:
         init_datasets()
 
     Path("outputs/csv").mkdir(parents=True, exist_ok=True)
     Path("outputs/png").mkdir(parents=True, exist_ok=True)
-    Path("outputs/csv").mkdir(parents=True, exist_ok=True)
+    Path("outputs/pdf").mkdir(parents=True, exist_ok=True)
+
+    # Train baseline models
+    # train_baselines(
+    #     list(range(10)),
+    #     ["ling", "sms", "spamassassin", "enron"],
+    #     [4, 8, 16, 32, 64, 128, 256, 0.8],
+    #     "test",
+    # )
 
     datasets = [
         # "ling",
@@ -27,17 +35,8 @@ if __name__ == "__main__":
         "trec-2007",
     ]
 
-    # Train baseline models
-    # train_baselines(
-    #     list(range(10)),
-    #     ["ling", "sms", "spamassassin", "enron"],
-    #     [4, 8, 16, 32, 64, 128, 256, 0.8],
-    #     "test",
-    # )
-
     # Train LLMs
     train_llms(
-        # list(range(5)),
         list(range(1)),
         datasets,
         # [4, 8, 16, 32, 64, 128, 256, 0.8],

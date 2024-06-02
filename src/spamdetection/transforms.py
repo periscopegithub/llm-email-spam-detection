@@ -8,7 +8,7 @@ ps = PorterStemmer()
 
 def init_nltk():
     nltk.download("punkt")
-    nltk.download("stopwords")
+    nltk.download('stopwords')
 
 
 def tokenize_words(text):
@@ -63,26 +63,18 @@ def tokenize(dataset, tokenizer):
 
     def tokenization_t5(examples, padding="max_length"):
         # Add T5 prefix to the text
-        text = ["classify as ham or spam: " + item for item in examples["text"]]
+        text = ["classify as ham or spam: " +
+                item for item in examples["text"]]
 
         # Tokenize text and labels
-        inputs = tokenizer(
-            text,
-            max_length=tokenizer.model_max_length,
-            padding=padding,
-            truncation=True,
-        )
+        inputs = tokenizer(text, max_length=tokenizer.model_max_length,
+                           padding=padding, truncation=True)
         labels = tokenizer(
-            text_target=examples["label"],
-            max_length=max_label_length,
-            padding=True,
-            truncation=True,
-        )
+            text_target=examples["label"], max_length=max_label_length, padding=True, truncation=True)
 
         # Replace tokenizer.pad_token_id in the labels by -100 to ignore padding in the loss
         inputs["labels"] = [
-            [(x if x != tokenizer.pad_token_id else -100) for x in label]
-            for label in labels["input_ids"]
+            [(x if x != tokenizer.pad_token_id else -100) for x in label] for label in labels["input_ids"]
         ]
         return inputs
 
@@ -91,12 +83,12 @@ def tokenize(dataset, tokenizer):
 
     elif "T5" in type(tokenizer).__name__:
         # Extra step to convert our 0/1 labels into "ham"/"spam" strings
-        dataset = dataset.map(lambda x: {"label": "ham" if x["label"] == 0 else "spam"})
+        dataset = dataset.map(
+            lambda x: {"label": "ham" if x["label"] == 0 else "spam"})
 
         # Calculate the max label length after tokenization
         tokenized_label = dataset["train"].map(
-            lambda x: tokenizer(x["label"], truncation=True), batched=True
-        )
+            lambda x: tokenizer(x["label"], truncation=True), batched=True)
         max_label_length = max([len(x) for x in tokenized_label["input_ids"]])
 
         return dataset.map(tokenization_t5, batched=True, remove_columns=["label"])

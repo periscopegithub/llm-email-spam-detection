@@ -18,24 +18,44 @@ def get_dataset(name: str) -> pd.DataFrame:
 
 def preprocess_enron() -> None:
     """Clean and rename the dataset and save it in data/processed"""
-    Path("data/raw/enron").mkdir(parents=True, exist_ok=True)
+    raw_dir = "data/raw/enron"
+    Path(raw_dir).mkdir(parents=True, exist_ok=True)
     Path("data/processed/enron").mkdir(parents=True, exist_ok=True)
 
+    api = KaggleApi()
+    api.authenticate()
+
     # Download and extract
-    url = "https://github.com/MWiechmann/enron_spam_data/raw/master/enron_spam_data.zip"
-    with urlopen(url) as zurl:
-        with ZipFile(BytesIO(zurl.read())) as zfile:
-            zfile.extractall("data/raw/enron")
+    # url = "https://github.com/MWiechmann/enron_spam_data/raw/master/enron_spam_data.zip"
+    # with urlopen(url) as zurl:
+    #     with ZipFile(BytesIO(zurl.read())) as zfile:
+    #         zfile.extractall("data/raw/enron")
+
+    # Download the dataset using Kaggle API
+    dataset_url = f"bayes2003/emails-for-spam-or-ham-classification-enron-2006"
+    api.dataset_download_files(dataset_url, path=raw_dir, unzip=True)
 
     # Load dataset
-    df = pd.read_csv("data/raw/enron/enron_spam_data.csv", encoding="ISO-8859-1")
+    # df = pd.read_csv("data/raw/enron/enron_spam_data.csv", encoding="ISO-8859-1")
+    # Load the processed email text CSV file
+    csv_file = os.path.join(raw_dir, "email_text.csv")
+    df = pd.read_csv(csv_file, encoding="ISO-8859-1")
 
     # Preprocess
     df = df.fillna("")
-    df["text"] = df["Subject"] + df["Message"]
-    df["label"] = df["Spam/Ham"].map({"ham": 0, "spam": 1})
+    # df["text"] = df["Subject"] + df["Message"]
+    # df["label"] = df["Spam/Ham"].map({"ham": 0, "spam": 1})
     df = df[["text", "label"]]
-    df = df.dropna()
+
+    # Remove rows where text is empty or whitespace
+    df = df[df["text"].str.strip() != ""]
+
+    # Remove rows where label is not 0 or 1
+    df = df[df["label"].isin([0, 1])]
+
+    # Drop rows where label is an empty string
+    df = df[df["label"].astype(str).str.strip() != ""]
+
     df = df.drop_duplicates()
 
     # Save
@@ -168,13 +188,17 @@ def preprocess_trec() -> None:
         # Preprocess
         df = df.fillna("")
         df = df[["text", "label"]]
-        df = df.dropna()
-        df = df.drop_duplicates()
-        # df = df.dropna(subset=["text"])
-        # df = df[df["text"].str.strip() != ""]
 
-        # Ensure labels are correct
+        # Remove rows where text is empty or whitespace
+        df = df[df["text"].str.strip() != ""]
+
+        # Remove rows where label is not 0 or 1
         df = df[df["label"].isin([0, 1])]
+
+        # Drop rows where label is an empty string
+        df = df[df["label"].astype(str).str.strip() != ""]
+
+        df = df.drop_duplicates()
 
         # Save the preprocessed data
         df.to_csv(os.path.join(processed_dir, "data.csv"), index=False)
@@ -183,9 +207,9 @@ def preprocess_trec() -> None:
 
 def init_datasets() -> None:
     preprocess_enron()
-    preprocess_ling()
-    preprocess_sms()
-    preprocess_spamassassin()
+    # preprocess_ling()
+    # preprocess_sms()
+    # preprocess_spamassassin()
     preprocess_trec()
 
 
